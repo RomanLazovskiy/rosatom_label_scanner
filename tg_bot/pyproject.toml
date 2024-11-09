@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "rosatom-label-scanner-bot"
+version = "0.1.0"
+description = ""
+authors = ["Роман Лазовский <r.v.lazovskiy@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+python-dotenv = "^1.0.1"
+python-telegram-bot = "^21.6"
+aiohttp = "^3.10.7"
+nest-asyncio = "^1.6.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    image: rosatom-label-scanner-api
+    container_name: api-container
+    ports:
+      - "8001:8001"
+    networks:
+      - app-network
+
+  tg-bot:
+    build:
+      context: ./tg_bot
+      dockerfile: Dockerfile
+    image: rosatom-label-scanner-tg-bot
+    container_name: tg-bot-container
+    env_file:
+      - ./tg_bot/.env
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
