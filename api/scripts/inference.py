@@ -13,7 +13,40 @@ from scripts.utils import cylindrical_unwrap, adjust_bounding_box_with_center_co
 
 
 class CLIPRotationClassifier(nn.Module):
+    """
+    Класс для классификации изображений по углу поворота с использованием модели CLIP.
+
+    Атрибуты
+    --------
+    clip_model : CLIPModel
+        Модель CLIP для извлечения признаков изображения.
+    fc : nn.Linear
+        Линейный слой для классификации по 4 углам поворота.
+    rotations : list[int]
+        Список углов поворота, которые может предсказать модель.
+    transform : transforms.Compose
+        Трансформация изображения для подачи в модель.
+    device : str
+        Устройство для выполнения вычислений (например, 'cuda' или 'cpu').
+
+    Методы
+    -------
+    forward(pixel_values):
+        Прямой проход через модель для получения прогнозов.
+    predict_rotation(image_pil):
+        Прогнозирует угол поворота изображения и возвращает его с правильной ориентацией.
+    """
     def __init__(self, num_classes=4, device='cuda'):
+        """
+        Конструктор класса для инициализации модели CLIP и классификатора поворота.
+
+        Параметры
+        ----------
+        num_classes : int, optional
+            Количество классов (по умолчанию 4 для углов: 0, 90, 180, 270).
+        device : str, optional
+            Устройство для выполнения вычислений ('cuda' или 'cpu').
+        """
         super(CLIPRotationClassifier, self).__init__()
         self.clip_model = CLIPModel.from_pretrained('openai/clip-vit-base-patch32')
         self.fc = nn.Linear(self.clip_model.visual_projection.out_features, num_classes)
@@ -31,13 +64,38 @@ class CLIPRotationClassifier(nn.Module):
         self.device = device
 
     def forward(self, pixel_values):
+        """
+        Прямой проход через модель для получения предсказаний.
+
+        Параметры
+        ----------
+        pixel_values : torch.Tensor
+            Тензор изображений, подаваемый в модель для извлечения признаков.
+
+        Возвращает
+        -------
+        torch.Tensor
+            Логиты для классификации углов поворота.
+        """
         image_features = self.clip_model.get_image_features(pixel_values=pixel_values)
         image_features = image_features / image_features.norm(dim=-1, keepdim=True)
         logits = self.fc(image_features)
         return logits
 
-    # Prediction Function
     def predict_rotation(self, image_pil):
+        """
+        Прогнозирует угол поворота изображения и возвращает изображение с правильной ориентацией.
+
+        Параметры
+        ----------
+        image_pil : PIL.Image
+            Изображение для прогнозирования угла поворота.
+
+        Возвращает
+        -------
+        PIL.Image
+            Изображение с правильной ориентацией.
+        """
         image = image_pil.convert('RGB')
         image_tensor = self.transform(image).unsqueeze(0).to(self.device)
 
@@ -52,6 +110,43 @@ class CLIPRotationClassifier(nn.Module):
 
 
 class MarkingOCR:
+    """
+    Класс для распознавания и классификации маркировок с использованием YOLO, OCR и модели поворота.
+
+    Атрибуты
+    --------
+    db : pandas.DataFrame
+        База данных для поиска наилучшего совпадения по тексту.
+    rotation_model_clf : CLIPRotationClassifier
+        Модель для классификации угла поворота.
+    device : str
+        Устройство для выполнения вычислений.
+    detect_model : YOLO
+        Модель для детекции объектов на изображении.
+    ocr_type : Literal['simple', 'efficient']
+        Тип используемой OCR модели: 'simple' для легкой модели, 'efficient' для более тяжелой.
+    ocr_model : callable
+        Модель OCR для распознавания текста на изображениях.
+    circle_corection : bool
+        Если True, то будет использоваться коррекция кругов.
+
+    Методы
+    -------
+    _device_detect():
+        Определяет доступное устройство для вычислений.
+    post_detect_processing(yolo_predict):
+        Обрабатывает результат предсказания YOLO.
+    find_best_match(text):
+        Находит наилучшее совпадение для текста в базе данных.
+    detect(images_list):
+        Детектирует объекты на изображениях с использованием модели YOLO.
+    ocr(image_with_texts):
+        Применяет OCR к изображениям и извлекает текст.
+    recognition(images):
+        Основной метод для обработки изображений, включая детекцию, OCR и классификацию.
+    __callable__(images):
+        Упрощенный интерфейс для вызова метода recognition.
+    """
     def __init__(self, yolo_model_path: str,
                  db: list[str],
                  rotation_model_clf: CLIPRotationClassifier,
@@ -60,9 +155,27 @@ class MarkingOCR:
                  path_to_efficient_ocr_model=None,
                  circle_corection: bool = True
                  ):
+        """
+        Конструктор класса MarkingOCR для инициализации всех необходимых моделей.
 
-        assert ocr_type in ['simple',
-                            'efficient'], f'unknown ocr_type type: {ocr_type}\n available options: [simple, efficient]'
+        Параметры
+        ----------
+        yolo_model_path : str
+            Путь к модели YOLO.
+        db : list[str]
+            База данных для поиска наилучших совпадений.
+        rotation_model_clf : CLIPRotationClassifier
+            Модель для классификации углов поворота.
+        device : str, optional
+            Устройство для выполнения вычислений ('cuda' или 'cpu').
+        ocr_type : {'simple', 'efficient'}, optional
+            Тип OCR модели.
+        path_to_efficient_ocr_model : str, optional
+            Путь к модели эффективного OCR.
+        circle_corection : bool, optional
+            Если True, то будет использоваться коррекция кругов.
+        """
+        assert ocr_type in ['simple', 'efficient'], f'unknown ocr_type type: {ocr_type}\n available options: [simple, efficient]'
 
         self.db = db
         self.rotation_model_clf = rotation_model_clf
@@ -74,7 +187,6 @@ class MarkingOCR:
 
         self.ocr_type = ocr_type
         if self.ocr_type == 'efficient':
-
             model_name = path_to_efficient_ocr_model if path_to_efficient_ocr_model else "microsoft/trocr-large-stage1"
             self.ocr_model = pipeline("image-to-text", model=model_name, device=self.device)
             print('init heavy ocr model')
@@ -89,22 +201,41 @@ class MarkingOCR:
             print('init circle detection model')
 
     def _device_detect(self):
-        if torch.cuda.is_available:
+        """
+        Определяет доступное устройство для вычислений.
+
+        Возвращает
+        -------
+        str
+            'cuda' если доступна GPU, 'cpu' в противном случае.
+        """
+        if torch.cuda.is_available():
             return 'cuda'
         else:
             return 'cpu'
 
     @staticmethod
     def post_detect_processing(yolo_predict):
+        """
+        Обрабатывает результат предсказания YOLO.
+
+        Параметры
+        ----------
+        yolo_predict : yolov5.Detections
+            Результат предсказания модели YOLO.
+
+        Возвращает
+        -------
+        np.ndarray
+            Объединенное изображение с вырезанными участками.
+        """
         boxes = yolo_predict.boxes  # Получаем координаты боксов
         image = yolo_predict.orig_img
-        # Список для хранения вырезанных участков
         cropped_images = []
 
         if len(boxes) == 0:
-            # print("Боксов не обнаружено на изображении.")
             return image
-        # Вырезание каждого бокса из изображения
+
         for box in boxes:
             x1, y1, x2, y2 = map(int, box.xyxy[0])
             cropped_image = image[y1:y2, x1:x2]
@@ -131,25 +262,60 @@ class MarkingOCR:
         return combined_image
 
     def find_best_match(self, text):
-        # Поиск наиболее похожей строки в базе
+        """
+        Находит наилучшее совпадение для текста в базе данных.
+
+        Параметры
+        ----------
+        text : str
+            Текст, для которого нужно найти наилучшее совпадение.
+
+        Возвращает
+        -------
+        str
+            Наилучшее совпадение для текста.
+        """
         best_ratio = 0
         best_match = ''
         for _, entry in self.db.iterrows():
             ratio = textdistance.levenshtein.normalized_similarity(text, entry['ДетальАртикул'])
-            # ratio = SequenceMatcher(None, text, entry).ratio()
             if ratio > best_ratio:
                 best_ratio = ratio
                 best_match = entry
-                best_info = entry
-        return best_match['ДетальАртикул'], best_info
+        return best_match['ДетальАртикул'], best_match
 
     def detect(self, images_list):
+        """
+        Детектирует объекты на изображениях с использованием модели YOLO.
+
+        Параметры
+        ----------
+        images_list : list
+            Список изображений для детекции.
+
+        Возвращает
+        -------
+        list
+            Список вырезанных изображений.
+        """
         datect_result = self.detect_model(images_list, agnostic_nms=True, iou=0.8)
         crop_marking_text = [self.post_detect_processing(x) for x in datect_result]
         return crop_marking_text, datect_result
 
     def ocr(self, image_with_texts):
+        """
+        Применяет OCR к изображениям и извлекает текст.
 
+        Параметры
+        ----------
+        image_with_texts : list
+            Список изображений для обработки OCR.
+
+        Возвращает
+        -------
+        list
+            Список извлеченного текста с каждого изображения.
+        """
         if self.ocr_type == 'efficient':
             if not isinstance(image_with_texts[0], Image.Image):
                 image_with_texts = [Image.fromarray(x) for x in image_with_texts]
@@ -161,8 +327,22 @@ class MarkingOCR:
 
         return extracted_text
 
-    def recognition(self, images: list[str],
-                    postprocessing_image: bool = False):
+    def recognition(self, images: list[str], postprocessing_image: bool = False):
+        """
+        Основной метод для обработки изображений, включая детекцию, OCR и классификацию.
+
+        Параметры
+        ----------
+        images : list
+            Список изображений для обработки.
+        postprocessing_image : bool, optional
+            Если True, выполняется дополнительная обработка изображения (например, поворот).
+
+        Возвращает
+        -------
+        list
+            Список наилучших совпадений для каждого текста.
+        """
         if self.circle_corection:
             circles_detect = self.circle_detection(images)
             images = []
@@ -191,7 +371,20 @@ class MarkingOCR:
         best_match = [(self.find_best_match(text), text) for text in texts]
         return best_match
 
-    def __callable__(self, images: list[str]):
+    def __call__(self, images: list[str]):
+        """
+        Упрощенный интерфейс для вызова метода recognition.
+
+        Параметры
+        ----------
+        images : list
+            Список изображений для обработки.
+
+        Возвращает
+        -------
+        list
+            Список наилучших совпадений для каждого текста.
+        """
         return self.recognition(images)
 
 
@@ -200,6 +393,27 @@ def get_inference_class(yolo_model_path,
                         path_to_rotate_model,
                         path_to_efficient_ocr_model=None,
                         device=None):
+    """
+    Функция для создания объекта для распознавания маркировок с использованием YOLO, OCR и модели поворота.
+
+    Параметры
+    ----------
+    yolo_model_path : str
+        Путь к модели YOLO.
+    db_excel_path : str
+        Путь к файлу базы данных в формате Excel.
+    path_to_rotate_model : str
+        Путь к модели для классификации угла поворота.
+    path_to_efficient_ocr_model : str, optional
+        Путь к модели эффективного OCR.
+    device : str, optional
+        Устройство для выполнения вычислений ('cuda' или 'cpu').
+
+    Возвращает
+    -------
+    MarkingOCR
+        Экземпляр класса MarkingOCR для выполнения распознавания.
+    """
     device = device if device else ("cuda" if torch.cuda.is_available() else "cpu")
     rot_model = CLIPRotationClassifier(device=device)
     rot_model.load_state_dict(torch.load(path_to_rotate_model, weights_only=True, map_location=device))

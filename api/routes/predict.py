@@ -13,15 +13,28 @@ router = APIRouter()
 
 # Изменение модели `PredictionResponse`
 class PredictionResponse(BaseModel):
+    """
+    Модель для представления ответа с результатами предсказания для каждого изображения.
+
+    Атрибуты
+    --------
+    filename : str
+        Имя файла изображения.
+    best_match : dict
+        Словарь с данными о наилучшем совпадении.
+    extracted_text : str
+        Извлеченный текст с изображения.
+    """
     filename: str
-    best_match: Dict[str, Any]  # Изменено для хранения словаря с данными
+    best_match: Dict[str, Any]
     extracted_text: str
 
+
 # Пути к файлам базы данных, модели и ротационной модели
-db_path = 'data/database.xlsx'
-yolo_model_path = 'models/best.pt'
-rotation_model_path = 'models/clip_rotation_classifier.pth'
-efficient_ocr_model_path = 'microsoft/trocr-large-stage1'
+db_path = 'data/database.xlsx'  # Путь к файлу базы данных
+yolo_model_path = 'models/best.pt'  # Путь к модели YOLO
+rotation_model_path = 'models/clip_rotation_classifier.pth'  # Путь к модели для классификации поворотов
+efficient_ocr_model_path = 'microsoft/trocr-large-stage1'  # Путь к модели OCR
 
 # Проверка наличия файлов базы данных и моделей
 if not os.path.exists(db_path):
@@ -45,7 +58,20 @@ recognitor = get_inference_class(
 
 @router.post("/predict", response_model=List[PredictionResponse])
 async def predict(file: UploadFile = File(...)):
-    temp_dir = "temp_upload"
+    """
+    Эндпоинт для предсказания на изображениях или архиве с изображениями.
+
+    Параметры
+    ----------
+    file : UploadFile
+        Загруженный файл (изображение или zip-архив с изображениями).
+
+    Возвращает
+    -------
+    List[PredictionResponse]
+        Список результатов предсказания для каждого изображения.
+    """
+    temp_dir = "temp_upload"  # Временная директория для сохранения загруженных файлов
     os.makedirs(temp_dir, exist_ok=True)
     predictions = []
 

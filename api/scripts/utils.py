@@ -1,31 +1,46 @@
 import numpy as np
 import cv2
 
+
 def cylindrical_unwrap(image, center, radius, output_height=None):
     """
-    Unwrap a circular region in an image into a rectangular strip using cv2.remap().
+    Разворачивает круглый участок изображения в прямоугольную полоску с использованием функции cv2.remap().
 
-    :param image: Input image with a circular part.
-    :param center: (x, y) coordinates of the circle's center.
-    :param radius: Radius of the circular part.
-    :param output_height: Desired height of the unwrapped image. Defaults to radius if not provided.
-    :return: Unwrapped rectangular image.
+    Параметры
+    ----------
+    image : np.ndarray
+        Входное изображение, содержащее круглый участок.
+    center : tuple
+        Координаты центра круга в виде (x, y).
+    radius : int
+        Радиус круглого участка, который нужно развернуть.
+    output_height : int, optional
+        Желаемая высота развернутого изображения. По умолчанию равна радиусу.
+
+    Возвращает
+    -------
+    np.ndarray
+        Развёрнутое прямоугольное изображение.
+
+    Примечания
+    ---------
+    Использует полярные координаты для преобразования в прямоугольные и метод cv2.remap() для выполнения преобразования.
     """
     if output_height is None:
         output_height = radius
 
     output_width = int(2 * np.pi * radius)
 
-    # Create meshgrid for the output image
+    # Создание сетки для выходного изображения
     theta = np.linspace(0, 2 * np.pi, output_width)
     h = np.linspace(0, radius, output_height)
     theta, h = np.meshgrid(theta, h)
 
-    # Convert polar coordinates to Cartesian coordinates
+    # Преобразование полярных координат в декартовы
     x_map = (center[0] + (radius - h) * np.cos(theta)).astype(np.float32)
     y_map = (center[1] + (radius - h) * np.sin(theta)).astype(np.float32)
 
-    # Use cv2.remap to apply the mapping
+    # Применение отображения с использованием cv2.remap
     unwrapped_image = cv2.remap(
         image,
         x_map,
@@ -37,25 +52,49 @@ def cylindrical_unwrap(image, center, radius, output_height=None):
 
     return unwrapped_image
 
+
 def adjust_bounding_box_with_center_correction(x_min, y_min, x_max, y_max):
-    # Calculate the width and height of the bounding box
+    """
+    Корректирует границы ограничивающего прямоугольника с учетом исправленного центра.
+
+    Параметры
+    ----------
+    x_min : int
+        Координата x левой нижней вершины ограничивающего прямоугольника.
+    y_min : int
+        Координата y левой нижней вершины ограничивающего прямоугольника.
+    x_max : int
+        Координата x правой верхней вершины ограничивающего прямоугольника.
+    y_max : int
+        Координата y правой верхней вершины ограничивающего прямоугольника.
+
+    Возвращает
+    -------
+    tuple
+        Исправленные координаты центра (x_center, y_center) и длина стороны (side_length), на основе минимальной стороны исходного прямоугольника.
+
+    Примечания
+    ---------
+    Возвращает центр с коррекцией для сохранения пропорций, где меньшая сторона остается фиксированной.
+    """
+    # Вычисление ширины и высоты ограничивающего прямоугольника
     width = x_max - x_min
     height = y_max - y_min
 
-    # Determine the smallest side
+    # Определение меньшей стороны
     side_length = min(width, height)
 
-    # Calculate the center of the original bounding box
+    # Вычисление центра исходного прямоугольника
     x_center = (x_min + x_max) / 2
     y_center = (y_min + y_max) / 2
 
-    # Adjust the center coordinate for the side that was larger
+    # Корректировка координат центра для большей стороны
     if width > height:
-        # Adjust the x_center to keep the new bounding box centered within the original width range
-        x_center = (x_min + x_max - side_length/4) / 2
+        # Корректировка x_center для сохранения нового прямоугольника внутри исходного диапазона по ширине
+        x_center = (x_min + x_max - side_length / 4) / 2
     elif height > width:
-        # Adjust the y_center to keep the new bounding box centered within the original height range
-        y_center = (y_min + y_max - side_length/4) / 2
+        # Корректировка y_center для сохранения нового прямоугольника внутри исходного диапазона по высоте
+        y_center = (y_min + y_max - side_length / 4) / 2
 
-    # Return the corrected center coordinates and the adjusted side length
+    # Возвращаем откорректированные координаты центра и новую длину стороны
     return x_center, y_center, side_length
