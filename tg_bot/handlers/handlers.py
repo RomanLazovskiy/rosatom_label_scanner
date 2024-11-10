@@ -5,9 +5,8 @@ import os
 import pandas as pd
 from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from dotenv import load_dotenv
 from telegram.helpers import escape_markdown
-
+from dotenv import load_dotenv
 
 TEMP_DIR = "temp_files"
 BAD_IMAGES_FILE = "data/bad_images.csv"
@@ -35,10 +34,10 @@ async def send_bad_images(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # Отправка изображения с кнопками "Верно" и "Неверно"
-async def send_image_with_buttons(file_path, caption, label, update, context):
-    # Сохраняем метку `label` в context.user_data
+async def send_image_with_buttons(file_path, caption, data, update, context):
+    # Сохраняем данные в context.user_data
     user_id = update.message.from_user.id
-    context.user_data[user_id] = label  # Сохраняем label по ID пользователя
+    context.user_data[user_id] = data  # Сохраняем все данные по ID пользователя
 
     # Создаем кнопки с коротким callback_data
     callback_correct = "correct"
@@ -49,7 +48,7 @@ async def send_image_with_buttons(file_path, caption, label, update, context):
         [InlineKeyboardButton("❌ Неверно", callback_data=callback_incorrect)]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_photo(photo=open(file_path, "rb"), caption=caption, reply_markup=reply_markup)
+    await update.message.reply_photo(photo=open(file_path, "rb"), caption=caption, reply_markup=reply_markup, parse_mode="Markdown")
 
 
 # Обработчик нажатий кнопок
@@ -59,15 +58,24 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     action, filename = query.data.split("|", 1) if "|" in query.data else (query.data, None)
     user_id = query.from_user.id
-    label = context.user_data.get(user_id, "Неизвестная метка")  # Получаем сохраненный label
+    data = context.user_data.get(user_id, {})  # Получаем сохраненные данные
+
+    # Формирование обновленного caption с полной информацией
+    updated_caption = (
+        f"*Метка:* {escape_markdown(data.get('ДетальАртикул', 'N/A'))}\n"
+        f"*Порядковый номер:* {escape_markdown(str(data.get('ПорядковыйНомер', 'N/A')))}\n"
+        f"*Наименование детали:* {escape_markdown(data.get('ДетальНаименование', 'N/A'))}\n"
+        f"*Номер заказа:* {escape_markdown(data.get('ЗаказНомер', 'N/A'))}\n"
+        f"*Станция/Блок:* {escape_markdown(data.get('СтанцияБлок', 'N/A'))}\n"
+    )
 
     if action == "incorrect" and filename:
-        add_bad_image(filename, label)
-        updated_caption = f"Метка: ❌ {label} (обозначено как 'Неверно')"
+        add_bad_image(filename, data.get('ДетальАртикул', 'N/A'))
+        updated_caption += "*Результат:* ❌ (обозначено как 'Неверно')"
     elif action == "correct":
-        updated_caption = f"Метка: ✅ {label} (обозначено как 'Верно')"
+        updated_caption += "*Результат:* ✅ (обозначено как 'Верно')"
 
-    await query.edit_message_caption(caption=updated_caption)
+    await query.edit_message_caption(caption=updated_caption, parse_mode="Markdown")
 
 
 # Обработчик команды start
@@ -139,14 +147,23 @@ async def process_and_send_results(file_path, update, context):
                     result = await response.json()
                     for prediction in result:
                         best_match_info = prediction['best_match']
-                        caption = f"Метка: {best_match_info['ДетальАртикул']}\n"
-                        caption += f"Порядковый номер: {best_match_info.get('ПорядковыйНомер', 'N/A')}\n"
-                        caption += f"Наименование детали: {best_match_info.get('ДетальНаименование', 'N/A')}\n"
-                        caption += f"Номер заказа: {best_match_info.get('ЗаказНомер', 'N/A')}\n"
-                        caption += f"Станция/Блок: {best_match_info.get('СтанцияБлок', 'N/A')}\n"
-                        caption += f"Распознанный текст: {prediction['extracted_text']}"
 
-                        await send_image_with_buttons(file_path, caption, best_match_info['ДетальАртикул'], update, context)
+                        # Формирование сообщения с основной меткой и дополнительной информацией
+                        caption = (
+                            f"*Метка:* {escape_markdown(best_match_info['ДетальАртикул'])}\n"
+                            f"*Порядковый номер:* {escape_markdown(str(best_match_info.get('ПорядковыйНомер', 'N/A')))}\n"
+                            f"*Наименование детали:* {escape_markdown(best_match_info.get('ДетальНаименование', 'N/A'))}\n"
+                            f"*Номер заказа:* {escape_markdown(best_match_info.get('ЗаказНомер', 'N/A'))}\n"
+                            f"*Станция/Блок:* {escape_markdown(best_match_info.get('СтанцияБлок', 'N/A'))}\n"
+                            f"*Распознанный текст:* {escape_markdown(prediction['extracted_text'])}"
+                        )
+
+                        # Сохраняем все данные в context.user_data
+                        user_id = update.message.from_user.id
+                        context.user_data[user_id] = best_match_info
+
+                        # Отправка изображения с кнопками
+                        await send_image_with_buttons(file_path, caption, best_match_info, update, context)
                 else:
                     await update.message.reply_text("Ошибка при обработке изображения на сервере.")
 
