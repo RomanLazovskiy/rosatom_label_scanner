@@ -13,12 +13,10 @@ download-data:
 	@echo "Создание директорий ./api/data и ./api/models..."
 	@mkdir -p ./api/data
 	@mkdir -p ./api/models
-	@echo "Скачивание 1.JPG в ./api/data..."
-	@gdown --id * -O ./api/data/1.JPG
 	@echo "Скачивание database.xlsx в ./api/data..."
-	@gdown --id * -O ./api/data/database.xlsx
+	@gdown --id 1xLkRJizUz82clmgRxEd8w5JQcnmx9Kkx -O ./api/data/database.xlsx
 	@echo "Скачивание models.zip в ./api/models..."
-	@gdown --id * -O ./api/models/models.zip
+	@gdown --id 12s_6bC5vV107PnP2MxwwGvt5HvmC261a -O ./api/models/models.zip
 	@echo "Распаковка models.zip в ./api/models..."
 	@unzip -o ./api/models/models.zip -d ./api/models/
 	@echo "Удаление архива models.zip..."
@@ -112,6 +110,11 @@ run-bot-local:
 	@echo "Запуск бота локально..."
 	@poetry run python ./tg_bot/main.py
 
+# Активация виртуального окружения с помощью Poetry
+env:
+	@echo "Активируем виртуальное окружение..."
+	@poetry shell
+
 
 # Список доступных команд
 help:
@@ -135,3 +138,4 @@ help:
 	@echo "  clean-bot         - Удаление Docker-образа для TG Bot"
 	@echo "  logs-bot          - Просмотр логов контейнера для TG Bot"
 	@echo "  shell-bot         - Вход в контейнер для TG Bot"
+	@echo "  env      - Активация виртуального окружения с помощью Poetry"
