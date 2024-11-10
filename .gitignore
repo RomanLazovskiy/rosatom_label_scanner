@@ -81,6 +81,8 @@ api/data/*
 api/models/*
 api/test.py
 
+/data
+
 
 # Секреты и ключи
 *.pem
