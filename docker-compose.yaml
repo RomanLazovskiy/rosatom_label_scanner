@@ -1,30 +1,30 @@
-version: '3.8'
+version: '3.8'  # Указывает на используемую версию Docker Compose
 
-services:
-  api:
+services:  # Определение сервисов в Docker Compose
+  api:  # Сервис для API
     build:
-      context: ./api
-      dockerfile: Dockerfile
-    image: rosatom-label-scanner-api
-    container_name: api-container
+      context: ./api  # Контекст сборки указывает на папку с исходным кодом для API
+      dockerfile: Dockerfile  # Использование Dockerfile для сборки образа
+    image: rosatom-label-scanner-api  # Название образа, который будет создан
+    container_name: api-container  # Имя контейнера
     ports:
-      - "8001:8001"
+      - "8001:8001"  # Прокси порта: внешний порт 8001 будет перенаправлен на внутренний порт 8001
     networks:
-      - app-network
+      - app-network  # Сетевое подключение для контейнера API
 
-  tg-bot:
+  tg-bot:  # Сервис для Telegram-бота
     build:
-      context: ./tg_bot
-      dockerfile: Dockerfile
-    image: rosatom-label-scanner-tg-bot
-    container_name: tg-bot-container
+      context: ./tg_bot  # Контекст сборки указывает на папку с исходным кодом для TG-бота
+      dockerfile: Dockerfile  # Использование Dockerfile для сборки образа
+    image: rosatom-label-scanner-tg-bot  # Название образа, который будет создан для TG-бота
+    container_name: tg-bot-container  # Имя контейнера для TG-бота
     env_file:
-      - ./tg_bot/.env
+      - ./tg_bot/.env  # Файл переменных окружения для TG-бота
     networks:
-      - app-network
+      - app-network  # Сетевое подключение для контейнера TG-бота
     volumes:
-      - ./data:/app/data
+      - ./data:/app/data  # Монтирование папки ./data на хосте в контейнер по пути /app/data
 
-networks:
+networks:  # Сетевые настройки для контейнеров
   app-network:
-    driver: bridge
+    driver: bridge  # Использование стандартного сетевого драйвера bridge
