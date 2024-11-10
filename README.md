@@ -41,7 +41,7 @@ cd rosatom_label_scanner
 
 ### Запуск целового проекта
 
-#### Необходимо заполнить файл .env по пути `rosatom_label_scanner/tg_bot/.env`
+#### Необходимо заполнить или создать файл .env по пути `rosatom_label_scanner/tg_bot/.env`
 
 ```
 TELEGRAM_BOT_TOKEN=<YOUR_BOT_TOKEN>

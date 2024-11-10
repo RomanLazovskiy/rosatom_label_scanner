@@ -6,11 +6,15 @@ import pandas as pd
 from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from dotenv import load_dotenv
+from telegram.helpers import escape_markdown
+
 
 TEMP_DIR = "temp_files"
 BAD_IMAGES_FILE = "data/bad_images.csv"
 os.makedirs(TEMP_DIR, exist_ok=True)
 
+
+# Функция для добавления неверно классифицированных изображений в CSV
 def add_bad_image(filename, label):
     df = pd.DataFrame([{"filename": filename, "label": label}])
     try:
@@ -20,6 +24,8 @@ def add_bad_image(filename, label):
         pass  # Если файла еще нет, создается новый DataFrame
     df.to_csv(BAD_IMAGES_FILE, index=False)
 
+
+# Отправка файла с неверно распознанными изображениями
 async def send_bad_images(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         with open(BAD_IMAGES_FILE, "rb") as file:
@@ -27,23 +33,35 @@ async def send_bad_images(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except FileNotFoundError:
         await update.message.reply_text("Файл с неверно распознанными изображениями пуст или не создан.")
 
-async def send_image_with_buttons(file_path, caption, label, update):
+
+# Отправка изображения с кнопками "Верно" и "Неверно"
+async def send_image_with_buttons(file_path, caption, label, update, context):
+    # Сохраняем метку `label` в context.user_data
+    user_id = update.message.from_user.id
+    context.user_data[user_id] = label  # Сохраняем label по ID пользователя
+
+    # Создаем кнопки с коротким callback_data
+    callback_correct = "correct"
+    callback_incorrect = f"incorrect|{os.path.basename(file_path)}"
+
     keyboard = [
-        [InlineKeyboardButton("✅ Верно", callback_data=f"correct|{label}")],
-        [InlineKeyboardButton("❌ Неверно", callback_data=f"incorrect|{os.path.basename(file_path)}|{label}")]
+        [InlineKeyboardButton("✅ Верно", callback_data=callback_correct)],
+        [InlineKeyboardButton("❌ Неверно", callback_data=callback_incorrect)]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_photo(photo=open(file_path, "rb"), caption=caption, reply_markup=reply_markup)
 
+
+# Обработчик нажатий кнопок
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    action, *data = query.data.split("|")
-    label = data[-1]
+    action, filename = query.data.split("|", 1) if "|" in query.data else (query.data, None)
+    user_id = query.from_user.id
+    label = context.user_data.get(user_id, "Неизвестная метка")  # Получаем сохраненный label
 
-    if action == "incorrect":
-        filename = data[0]
+    if action == "incorrect" and filename:
         add_bad_image(filename, label)
         updated_caption = f"Метка: ❌ {label} (обозначено как 'Неверно')"
     elif action == "correct":
@@ -52,6 +70,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.edit_message_caption(caption=updated_caption)
 
 
+# Обработчик команды start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [["Start", "Info", "Help", "Bad Images"]]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
@@ -62,6 +81,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await update.message.reply_text(greeting, reply_markup=reply_markup)
 
+
+# Обработчик команды info
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     info_message = (
         "Я автоматический сканнер маркировки для компании РосАтом от команды Уральские мандарины. "
@@ -70,6 +91,8 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await update.message.reply_text(info_message)
 
+
+# Обработчик команды help
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     help_message = (
         "Список доступных команд:\n"
@@ -80,6 +103,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await update.message.reply_text(help_message)
 
+
+# Обработка входящих сообщений
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     text = update.message.text.lower()
@@ -96,7 +121,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("Неизвестная команда. Попробуйте Start, Info, Help или Bad Images.")
 
-async def process_and_send_results(file_path, update):
+
+# Функция для обработки изображений и отправки результатов
+async def process_and_send_results(file_path, update, context):
     load_dotenv()
     url = os.getenv("API_URL", "http://api-container:8001/api/predict")
     if not url:
@@ -111,12 +138,20 @@ async def process_and_send_results(file_path, update):
                 if response.status == 200:
                     result = await response.json()
                     for prediction in result:
-                        label = prediction['best_match']
-                        caption = f"Метка: {label}"
-                        await send_image_with_buttons(file_path, caption, label, update)
+                        best_match_info = prediction['best_match']
+                        caption = f"Метка: {best_match_info['ДетальАртикул']}\n"
+                        caption += f"Порядковый номер: {best_match_info.get('ПорядковыйНомер', 'N/A')}\n"
+                        caption += f"Наименование детали: {best_match_info.get('ДетальНаименование', 'N/A')}\n"
+                        caption += f"Номер заказа: {best_match_info.get('ЗаказНомер', 'N/A')}\n"
+                        caption += f"Станция/Блок: {best_match_info.get('СтанцияБлок', 'N/A')}\n"
+                        caption += f"Распознанный текст: {prediction['extracted_text']}"
+
+                        await send_image_with_buttons(file_path, caption, best_match_info['ДетальАртикул'], update, context)
                 else:
                     await update.message.reply_text("Ошибка при обработке изображения на сервере.")
 
+
+# Обработчик для изображений
 async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     logging.info(f"Получено изображение от {user.username} (ID: {user.id})")
@@ -127,7 +162,7 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
         file_path = os.path.join(TEMP_DIR, f"{user.id}_photo.jpg")
         await file.download_to_drive(file_path)
 
-        await process_and_send_results(file_path, update)
+        await process_and_send_results(file_path, update, context)
         os.remove(file_path)
 
     elif update.message.document and update.message.document.mime_type == "application/zip":
@@ -145,7 +180,7 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
             for filename in os.listdir(TEMP_DIR):
                 file_path = os.path.join(TEMP_DIR, filename)
                 if filename.lower().endswith((".png", ".jpg", ".jpeg")):
-                    await process_and_send_results(file_path, update)
+                    await process_and_send_results(file_path, update, context)
                     os.remove(file_path)
 
         os.remove(zip_path)
