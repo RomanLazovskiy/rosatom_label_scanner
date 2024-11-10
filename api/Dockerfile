@@ -6,13 +6,13 @@ WORKDIR /app
 
 # Обновление пакетов и установка необходимых зависимостей
 RUN apt-get update && apt-get install -y \
-    git \  # Установка git для работы с репозиториями
-    curl \  # Установка curl для скачивания скриптов и файлов
-    libgl1-mesa-glx \  # Установка библиотеки для графических операций
-    libglib2.0-0 \  # Установка библиотеки для графических операций
-    && curl -sSL https://install.python-poetry.org | python3 - \  # Установка Poetry для управления зависимостями
-    && apt-get clean \  # Очистка кэша apt для уменьшения размера контейнера
-    && rm -rf /var/lib/apt/lists/*  # Удаление временных файлов
+    git \
+    curl \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    && curl -sSL https://install.python-poetry.org | python3 - \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Добавление Poetry в PATH, чтобы его можно было использовать
 ENV PATH="/root/.local/bin:$PATH"

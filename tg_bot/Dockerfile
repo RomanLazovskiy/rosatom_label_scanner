@@ -7,10 +7,10 @@ ENV PYTHONPATH="/app"
 ENV PATH="/root/.local/bin:$PATH"
 
 # Обновление пакетов, установка curl и Poetry, очистка кэша
-RUN apt-get update && apt-get install -y curl \  # Установка curl для скачивания данных
-    && curl -sSL https://install.python-poetry.org | python3 - \  # Установка Poetry для управления зависимостями
-    && apt-get clean \  # Очистка кэша apt для уменьшения размера контейнера
-    && rm -rf /var/lib/apt/lists/*  # Удаление временных файлов, чтобы уменьшить размер контейнера
+RUN apt-get update && apt-get install -y curl \
+    && curl -sSL https://install.python-poetry.org | python3 - \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Устанавливаем рабочую директорию в контейнере
 WORKDIR /app
