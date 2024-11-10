@@ -12,7 +12,13 @@
 
 ![Rosatom Label Scanner](./media/spec.jpg)
 
-Демонстрацию работы приложения можно посмотреть по ссылке: [Screencast](https://drive.google.com/file/d/1OJIFAM_Es7rMaUfGjTYF8ITp3sW3QUta/view?usp=drive_link)
+Демонстрацию работы приложения можно посмотреть по ссылке: 
+
+<video width="600" controls>
+  <source src="./media/screencast.mp4" type="video/mp4">
+  Ваш браузер не поддерживает тег video.
+</video>
+
 
 Проект состоит из двух основных частей:
 
