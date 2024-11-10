@@ -88,8 +88,6 @@ class MarkingOCR:
             self.circle_detection.set_classes(['circle object'])
             print('init circle detection model')
 
-        # TODO: add many detection
-
     def _device_detect(self):
         if torch.cuda.is_available:
             return 'cuda'
