@@ -116,8 +116,8 @@ class MarkingOCR:
         return crop_marking_text
 
     def ocr(self, image_with_texts):
-        logging.info("Ocr type:", self.ocr_type)
-        logging.info("image_with_texts type: ", type(image_with_texts[0]))
+        logging.info(f"Ocr type: {self.ocr_type}")
+        logging.info(f"image_with_texts type: {type(image_with_texts[0])}")
         if self.ocr_type == 'efficient':
             if not isinstance(image_with_texts[0], Image.Image):
                 image_with_texts = [Image.fromarray(x) for x in image_with_texts]

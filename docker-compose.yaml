@@ -22,6 +22,8 @@ services:
       - ./tg_bot/.env
     networks:
       - app-network
+    volumes:
+      - ./data:/app/data
 
 networks:
   app-network:
