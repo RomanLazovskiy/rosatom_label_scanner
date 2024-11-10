@@ -13,7 +13,7 @@
 ![Rosatom Label Scanner](./media/spec.jpg)
 
 
-- **Screencast**: [Screencast]([https://t.me/rvlazovskiy](https://drive.google.com/file/d/1OJIFAM_Es7rMaUfGjTYF8ITp3sW3QUta/view?usp=drive_link))
+- **Screencast**: [Screencast]([https://t.me/rvlazovskiy](https://drive.google.com/file/d/1OJIFAM_Es7rMaUfGjTYF8ITp3sW3QUta/view?usp=drive_link)
 
 Проект состоит из двух основных частей:
 
